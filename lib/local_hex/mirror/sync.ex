@@ -93,6 +93,38 @@ defmodule LocalHex.Mirror.Sync do
       versions = filter_allowed_packages(mirror, versions, new_packages)
       difference = RegistryDiff.compare(mirror.registry, versions)
 
+      # In full-sync mode with no `sync_only` restriction, the upstream dataset is huge.
+      # We still want to mirror everything, but we do it in small batches per sync tick
+      # to avoid hammering the upstream and to keep each tick bounded.
+      batch_size = mirror.options[:batch_size] || 25
+      sync_mode = mirror.options[:sync_mode] || :full
+      sync_only = mirror.options[:sync_only]
+
+      {difference, more_work?} =
+        if sync_mode == :full and is_nil(sync_only) and batch_size > 0 do
+          created = difference.packages.created
+
+          {difference, more_work?} =
+            if is_list(created) and length(created) > batch_size do
+              created_batch = Enum.take(created, batch_size)
+              {put_in(difference, [:packages, :created], created_batch), true}
+            else
+              {difference, false}
+            end
+
+          # If we're not creating packages, release updates can still be large. Batch by package name.
+          releases = difference.releases
+
+          if is_map(releases) and map_size(releases) > batch_size do
+            names = releases |> Map.keys() |> Enum.sort() |> Enum.take(batch_size)
+            {put_in(difference, [:releases], Map.take(releases, names)), true}
+          else
+            {difference, more_work?}
+          end
+        else
+          {difference, false}
+        end
+
       Logger.debug([inspect(__MODULE__), " difference: ", inspect(difference, pretty: true)])
       created = sync_created_packages(mirror, difference)
       deleted = sync_deleted_packages(mirror, difference)
@@ -108,14 +140,18 @@ defmodule LocalHex.Mirror.Sync do
       new_mirror = Map.put(mirror, :registry, updated_registry)
       Repository.save(new_mirror)
 
-      case RegistryDiff.deps_compare(updated_registry, mirror.registry) do
-        {:ok, :equal} ->
-          Logger.debug([inspect(__MODULE__), " sync done: nothing else to do"])
-          {:ok, mirror}
+      if more_work? do
+        {:new_deps, [], new_mirror}
+      else
+        case RegistryDiff.deps_compare(updated_registry, mirror.registry) do
+          {:ok, :equal} ->
+            Logger.debug([inspect(__MODULE__), " sync done: nothing else to do"])
+            {:ok, mirror}
 
-        {:ok, new_deps} ->
-          Logger.debug([inspect(__MODULE__), " sync done with new deps: ", inspect(new_deps)])
-          {:new_deps, new_deps, mirror}
+          {:ok, new_deps} ->
+            Logger.debug([inspect(__MODULE__), " sync done with new deps: ", inspect(new_deps)])
+            {:new_deps, new_deps, mirror}
+        end
       end
     end
   end
@@ -124,10 +160,17 @@ defmodule LocalHex.Mirror.Sync do
     packages_in_registry = Map.keys(mirror.registry)
     sync_only = mirror.options[:sync_only]
 
-    # `sync_only` is optional. If unset (`nil`) we mirror everything.
-    # Guard `in` so we never call Enum.member?/2 on nil.
+    sync_mode = mirror.options[:sync_mode] || :full
+
+    # `sync_only` is optional. If unset (`nil`) and we're in `:full` mode,
+    # we mirror everything. In `:on_demand` mode, we only include packages
+    # already in the mirror registry or explicitly requested.
     sync_only_allows? = fn name ->
-      is_nil(sync_only) or (is_list(sync_only) and name in sync_only)
+      cond do
+        is_list(sync_only) -> name in sync_only
+        is_nil(sync_only) and sync_mode == :full -> true
+        true -> false
+      end
     end
 
     for %{name: name} = map <- versions,

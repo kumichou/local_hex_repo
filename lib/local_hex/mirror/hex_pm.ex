@@ -5,12 +5,14 @@ defmodule LocalHex.Mirror.HexPm do
   local repo configuration
   """
   require Logger
+  alias LocalHex.Mirror.RateLimiter
 
   def fetch_hexpm_names(repository) do
     Logger.debug("#{inspect(__MODULE__)} fetching names")
 
     config = hex_config(repository)
 
+    RateLimiter.wait()
     case :hex_http.request(config, :get, config.repo_url <> "/names", %{}, :undefined) do
       {:ok, {200, _, signed}} -> {:ok, signed}
       error -> error
@@ -22,6 +24,7 @@ defmodule LocalHex.Mirror.HexPm do
 
     config = hex_config(repository)
 
+    RateLimiter.wait()
     case :hex_http.request(config, :get, config.repo_url <> "/versions", %{}, :undefined) do
       {:ok, {200, _, signed}} -> {:ok, signed}
       error -> error
@@ -33,6 +36,7 @@ defmodule LocalHex.Mirror.HexPm do
 
     config = hex_config(repository)
 
+    RateLimiter.wait()
     case :hex_http.request(config, :get, config.repo_url <> "/packages/" <> name, %{}, :undefined) do
       {:ok, {200, _, signed}} -> {:ok, signed}
       error -> error
@@ -44,6 +48,7 @@ defmodule LocalHex.Mirror.HexPm do
 
     config = hex_config(repository)
 
+    RateLimiter.wait()
     case :hex_repo.get_tarball(config, name, version) do
       {:ok, {200, _, tarball}} -> {:ok, tarball}
       error -> error

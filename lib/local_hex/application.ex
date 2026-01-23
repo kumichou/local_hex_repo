@@ -46,7 +46,10 @@ defmodule LocalHex.Application do
       {_type, options} ->
         Logger.info("Mirror server config found and being started")
         repo = LocalHex.Repository.init(options)
-        [{LocalHex.Mirror.Server, repo}]
+        [
+          {LocalHex.Mirror.RateLimiter, repo.options},
+          {LocalHex.Mirror.Server, repo}
+        ]
     end
   end
 end

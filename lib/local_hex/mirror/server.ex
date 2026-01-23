@@ -9,7 +9,9 @@ defmodule LocalHex.Mirror.Server do
 
   require Logger
 
+  alias LocalHex.Mirror.Publish
   alias LocalHex.Mirror.Sync
+  alias LocalHex.Package
   alias LocalHex.Repository
 
   # @default_sync_opts [ordered: false]
@@ -27,6 +29,10 @@ defmodule LocalHex.Mirror.Server do
 
   def ensure_package(name) do
     GenServer.call(__MODULE__, {:ensure_package, name}, :infinity)
+  end
+
+  def mirror_on_publish(%Package{} = pkg) do
+    GenServer.call(__MODULE__, {:mirror_on_publish, pkg}, :infinity)
   end
 
   def handle_info(:sync, state) do
@@ -49,6 +55,18 @@ defmodule LocalHex.Mirror.Server do
       end
 
     {:reply, :ok, new_state}
+  end
+
+  def handle_call({:mirror_on_publish, %Package{} = pkg}, _from, state) do
+    mirror = Repository.load(state.mirror)
+
+    eager? = mirror.options[:eager_on_publish] in [true, "true"]
+
+    if eager? do
+      :ok = Publish.mirror_transitive_deps(mirror, pkg)
+    end
+
+    {:reply, :ok, new_state(mirror, state.deps)}
   end
 
   def handle_call(_msg, _from, state) do

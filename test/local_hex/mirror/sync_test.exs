@@ -156,6 +156,62 @@ defmodule LocalHex.Mirror.SyncTest do
     refute File.exists?(path(repository(), ["tarballs", "another_lib", "another_lib-0.1.0.tar"]))
   end
 
+  test "full mirror batches created packages when sync_only is nil" do
+    # Configure this repository for full sync and a small batch size.
+    mirror =
+      repository()
+      |> Map.update!(:options, fn opts ->
+        opts
+        |> Map.merge(%{
+          sync_mode: :full,
+          sync_only: nil,
+          batch_size: 1,
+          # keep this test fast
+          sync_opts: [max_concurrency: 1, timeout: 20_000]
+        })
+      end)
+
+    _ = File.read("./test/fixtures/example_lib-0.1.0.tar")
+    {:ok, another_tarball} = File.read("./test/fixtures/another_lib-0.1.0.tar")
+
+    MockHexApi
+    |> expect(:fetch_hexpm_names, 1, fn _ ->
+      {:ok,
+       upstream_encode_names([
+         %{name: "example_lib", updated_at: %{nanos: 0, seconds: 0}},
+         %{name: "another_lib", updated_at: %{nanos: 0, seconds: 0}}
+       ])}
+    end)
+    |> expect(:fetch_hexpm_versions, 1, fn _ ->
+      {:ok,
+       upstream_encode_versions([
+         %{name: "example_lib", retired: [], versions: ["0.1.0"]},
+         %{name: "another_lib", retired: [], versions: ["0.1.0"]}
+       ])}
+    end)
+    # With batch_size=1, we should only fetch ONE created package on this tick.
+    |> expect(:fetch_hexpm_package, 1, fn
+      _, "another_lib" ->
+        {:ok, another_pkg} = Package.load_from_tarball(another_tarball)
+        {:ok, upstream_encode_package("another_lib", [another_pkg])}
+    end)
+    |> expect(:fetch_hexpm_tarball, 1, fn
+      _, "another_lib", "0.1.0" -> {:ok, another_tarball}
+    end)
+
+    assert {:new_deps, [], _} = Sync.sync(mirror, [])
+
+    mirror = Repository.load(mirror)
+    assert Map.has_key?(mirror.registry, "another_lib")
+    refute Map.has_key?(mirror.registry, "example_lib")
+
+    assert File.exists?(path(mirror, ["tarballs", "another_lib", "another_lib-0.1.0.tar"]))
+    refute File.exists?(path(mirror, ["tarballs", "example_lib", "example_lib-0.1.0.tar"]))
+
+    # ensure we didn't accidentally download the unused tarball
+    refute File.exists?(path(mirror, ["tarballs", "example_lib", "example_lib-0.1.0.tar"]))
+  end
+
   @tag :skip
   test "sync library with other dependencies to sync as well" do
     Logger.debug("#####################################")

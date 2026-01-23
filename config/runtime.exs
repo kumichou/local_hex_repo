@@ -117,14 +117,68 @@ if config_env() == :prod do
 
   mirror_repo =
     if mirror_enabled? do
+      mirror_mode =
+        case System.get_env("LOCAL_HEX_MIRROR_MODE") || "on_demand" do
+          "full" -> :full
+          "on_demand" -> :on_demand
+          other -> raise "Unsupported LOCAL_HEX_MIRROR_MODE=#{inspect(other)} (expected full|on_demand)"
+        end
+
+      eager_on_publish = (System.get_env("LOCAL_HEX_MIRROR_EAGER_ON_PUBLISH") || "true") == "true"
+
+      hex_rps = (System.get_env("LOCAL_HEX_MIRROR_HEX_RPS") || "2") |> String.to_float()
+      hex_burst = (System.get_env("LOCAL_HEX_MIRROR_HEX_BURST") || "5") |> String.to_integer()
+
+      batch_size = (System.get_env("LOCAL_HEX_MIRROR_BATCH_SIZE") || "25") |> String.to_integer()
+      batch_pause_min_ms =
+        (System.get_env("LOCAL_HEX_MIRROR_BATCH_PAUSE_MIN_MS") || "200") |> String.to_integer()
+
+      batch_pause_max_ms =
+        (System.get_env("LOCAL_HEX_MIRROR_BATCH_PAUSE_MAX_MS") || "500") |> String.to_integer()
+
+      max_package_fetch_concurrency =
+        (System.get_env("LOCAL_HEX_MIRROR_MAX_PACKAGE_FETCH_CONCURRENCY") || "2") |> String.to_integer()
+
+      max_tarball_fetch_concurrency =
+        (System.get_env("LOCAL_HEX_MIRROR_MAX_TARBALL_FETCH_CONCURRENCY") || "2") |> String.to_integer()
+
+      include_optional_deps = (System.get_env("LOCAL_HEX_MIRROR_INCLUDE_OPTIONAL_DEPS") || "false") == "true"
+
+      sync_only =
+        case System.get_env("LOCAL_HEX_MIRROR_SYNC_ONLY") do
+          nil ->
+            nil
+
+          value ->
+            value
+            |> String.split(",", trim: true)
+            |> Enum.map(&String.trim/1)
+            |> Enum.reject(&(&1 == ""))
+            |> case do
+              [] -> nil
+              list -> list
+            end
+        end
+
       [
         name: System.get_env("LOCAL_HEX_MIRROR_REPO_NAME") || "#{repo_name}_mirror",
         store: store,
         private_key: private_key,
         public_key: public_key,
         options: %{
+          sync_mode: mirror_mode,
+          eager_on_publish: eager_on_publish,
+          hex_rps: hex_rps,
+          hex_burst: hex_burst,
+          batch_size: batch_size,
+          batch_pause_min_ms: batch_pause_min_ms,
+          batch_pause_max_ms: batch_pause_max_ms,
+          max_package_fetch_concurrency: max_package_fetch_concurrency,
+          max_tarball_fetch_concurrency: max_tarball_fetch_concurrency,
+          include_optional_deps: include_optional_deps,
+          sync_only: sync_only,
           sync_interval: String.to_integer(System.get_env("LOCAL_HEX_MIRROR_SYNC_INTERVAL_MS") || "3600000"),
-          sync_opts: [max_concurrency: 5, timeout: 60000],
+          sync_opts: [max_concurrency: max_tarball_fetch_concurrency, timeout: 60000],
           sync_on_demand: true,
           upstream_name: System.get_env("LOCAL_HEX_MIRROR_UPSTREAM_NAME") || "hexpm",
           upstream_url: System.get_env("LOCAL_HEX_MIRROR_UPSTREAM_URL") || "https://repo.hex.pm",

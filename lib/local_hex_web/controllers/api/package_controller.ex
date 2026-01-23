@@ -1,6 +1,8 @@
 defmodule LocalHexWeb.API.PackageController do
   use LocalHexWeb, :controller
 
+  alias LocalHex.Mirror.Server, as: MirrorServer
+  alias LocalHex.Package
   alias LocalHex.RepositoryServer
 
   # publish a package
@@ -9,6 +11,15 @@ defmodule LocalHexWeb.API.PackageController do
 
     case RepositoryServer.publish(repository_config(), tarball) do
       {:ok, _repository} ->
+        # Eagerly mirror all transitive deps (if mirror enabled).
+        case Package.load_from_tarball(tarball) do
+          {:ok, pkg} ->
+            _ = MirrorServer.mirror_on_publish(pkg)
+
+          _ ->
+            :ok
+        end
+
         body =
           %{"url" => current_url(conn)}
           |> :erlang.term_to_binary()
