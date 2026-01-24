@@ -46,11 +46,10 @@ window.liveSocket = liveSocket
 
 // import ClipboardJS from "clipboard";
 
-function SideBar() {
+function SideBar(sidebar) {
   if (!sidebar) return;
 
   const toggle = sidebar.querySelector(".sidebar__toggle");
-  const linkItems = sidebar.querySelector(".sidebar__link");
   const toggleOpen = () => sidebar.classList.toggle("sidebar__open");
 
   toggle.addEventListener("click", toggleOpen);
@@ -65,11 +64,23 @@ function SideBar() {
   });
 };
 
-function Collapsible() {
+function Collapsible(collapsible) {
   if (!collapsible) return;
 
   const toggle = collapsible.querySelector(".collapsible__toggle");
-  const toggleOpen = () => collapsible.classList.toggle("collapsible__open");
+
+  const setToggleText = () => {
+    const isOpen = collapsible.classList.contains("collapsible__open");
+    toggle.textContent = isOpen ? "Hide setup guide" : "Show setup guide";
+  };
+
+  const toggleOpen = () => {
+    collapsible.classList.toggle("collapsible__open");
+    setToggleText();
+  };
+
+  // Set initial label based on initial state
+  setToggleText();
 
   toggle.addEventListener("click", toggleOpen);
 };
