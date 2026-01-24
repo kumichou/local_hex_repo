@@ -14,7 +14,11 @@ defmodule LocalHexWeb.API.PackageController do
         # Eagerly mirror all transitive deps (if mirror enabled).
         case Package.load_from_tarball(tarball) do
           {:ok, pkg} ->
-            _ = MirrorServer.mirror_on_publish(pkg)
+            # Don't block the publish HTTP response on mirroring work.
+            _ =
+              Task.start(fn ->
+                MirrorServer.mirror_on_publish(pkg)
+              end)
 
           _ ->
             :ok
