@@ -126,7 +126,7 @@ if config_env() == :prod do
 
       eager_on_publish = (System.get_env("LOCAL_HEX_MIRROR_EAGER_ON_PUBLISH") || "true") == "true"
 
-      hex_rps = (System.get_env("LOCAL_HEX_MIRROR_HEX_RPS") || "2") |> String.to_float()
+      hex_rps = (System.get_env("LOCAL_HEX_MIRROR_HEX_RPS") || "2.0") |> String.to_float()
       hex_burst = (System.get_env("LOCAL_HEX_MIRROR_HEX_BURST") || "5") |> String.to_integer()
 
       batch_size = (System.get_env("LOCAL_HEX_MIRROR_BATCH_SIZE") || "25") |> String.to_integer()

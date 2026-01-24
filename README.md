@@ -60,6 +60,16 @@ Required:
   * `LOCAL_HEX_PRIVATE_KEY_PEM` or `LOCAL_HEX_PRIVATE_KEY_PATH`
   * `LOCAL_HEX_PUBLIC_KEY_PEM` or `LOCAL_HEX_PUBLIC_KEY_PATH`
 
+Generate signing keys:
+
+```bash
+# Generate RSA private key PEM
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out local_hex_private_key.pem
+
+# Generate corresponding public key PEM
+openssl pkey -in local_hex_private_key.pem -pubout -out local_hex_public_key.pem
+```
+
 Common:
 
 * `LOCAL_HEX_REPO_NAME` (default: `local_hex`)
@@ -79,7 +89,6 @@ Storage:
   * `AWS_REGION` / `AWS_DEFAULT_REGION` (default: `us-east-1`)
   * Optional IRSA / web identity: `AWS_ROLE_ARN` + `AWS_WEB_IDENTITY_TOKEN_FILE`
 
-
 ## Adding setup for a Hex.pm mirror
 
 To configure the mirror ability add the following repository configuration for the `:mirror` to your configuration list of repositories.
@@ -90,6 +99,7 @@ In production you can also enable the mirror via environment variables:
 * `LOCAL_HEX_MIRROR_UPSTREAM_PUBLIC_KEY_PEM` (or `LOCAL_HEX_MIRROR_UPSTREAM_PUBLIC_KEY_PATH`)
 * Optional overrides: `LOCAL_HEX_MIRROR_REPO_NAME`, `LOCAL_HEX_MIRROR_SYNC_INTERVAL_MS`,
   `LOCAL_HEX_MIRROR_UPSTREAM_NAME`, `LOCAL_HEX_MIRROR_UPSTREAM_URL`
+* Rate limiting: `LOCAL_HEX_MIRROR_HEX_RPS` (must be a float string like `2.0`) and `LOCAL_HEX_MIRROR_HEX_BURST`
 
 ```elixir
 config :local_hex,
@@ -125,27 +135,27 @@ config :local_hex,
   ]
 ```
 
-* __name__: Name of the repository which also is used in the `hex.config` and `deps` configuration
+* **name**: Name of the repository which also is used in the `hex.config` and `deps` configuration
 
-* __store__: Currently it's only possible to choose `LocalHex.Storage.(Local | S3)` to store packages. In case more is need it is pretty easy to write another adapter. Also see the adapter modules for their configuration.
+* **store**: Currently it's only possible to choose `LocalHex.Storage.(Local | S3)` to store packages. In case more is need it is pretty easy to write another adapter. Also see the adapter modules for their configuration.
 
-* __private_key__: Private key generated via `ssh` or any other way. This is used to sign packages. Suggestion: It's best to be provided via your infrastructure and not to be included in your codebase.
+* **private_key**: Private key generated via `ssh` or any other way. This is used to sign packages. Suggestion: It's best to be provided via your infrastructure and not to be included in your codebase.
 
-* __public_key__: Public key material for you private key. This is used to validate published packages with the private key. Suggestion: It's best to be provided via your infrastructure and not to be included in your codebase.
+* **public_key**: Public key material for you private key. This is used to validate published packages with the private key. Suggestion: It's best to be provided via your infrastructure and not to be included in your codebase.
 
-* __sync_interval__: The interval in milliseconds to wait between rechecks if something new has to be mirrored
+* **sync_interval**: The interval in milliseconds to wait between rechecks if something new has to be mirrored
 
-* __sync_opts__: Currently only timeout or concurrency controls for the sync, more documentation and options will follow
+* **sync_opts**: Currently only timeout or concurrency controls for the sync, more documentation and options will follow
 
-* __sync_on_demand__: Dependencies when requested but missing will be tried to synced from upstream
+* **sync_on_demand**: Dependencies when requested but missing will be tried to synced from upstream
 
-* __sync_only__: The selection of dependencies to mirror from upstream
+* **sync_only**: The selection of dependencies to mirror from upstream
 
-* __upstream_name__: Default name of Hex.pm, could be changed to some third party package storage
+* **upstream_name**: Default name of Hex.pm, could be changed to some third party package storage
 
-* __upstream_url__: Default url of Hex.pm, could be changed to some third party package storage url
+* **upstream_url**: Default url of Hex.pm, could be changed to some third party package storage url
 
-* __upstream_public_key__: Default public key of Hex.pm, could be changed to some third party package storage public key
+* **upstream_public_key**: Default public key of Hex.pm, could be changed to some third party package storage public key
 
 ## Additional storage adapters
 
