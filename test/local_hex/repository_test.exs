@@ -185,7 +185,7 @@ defmodule LocalHex.RepositoryTest do
       {:ok, repository} = LocalHex.Repository.publish(repository, tarball)
       {:ok, repository} = LocalHex.Repository.revert(repository, "example_lib", "0.1.0")
 
-      assert Enum.empty?(repository.registry["example_lib"])
+      refute Map.has_key?(repository.registry, "example_lib")
     end
 
     test "error on missing version" do

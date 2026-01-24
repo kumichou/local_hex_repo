@@ -67,9 +67,19 @@ defmodule LocalHex.Registry do
   end
 
   def revert_release(registry, package_name, version) do
-    Map.update!(registry, package_name, fn releases ->
-      Enum.reject(releases, &(&1.version == version))
-    end)
+    case Map.get(registry, package_name) do
+      nil ->
+        # Idempotent: package doesn't exist
+        registry
+
+      releases ->
+        updated_releases = Enum.reject(releases, &(&1.version == version))
+
+        case updated_releases do
+          [] -> Map.delete(registry, package_name)
+          _ -> Map.put(registry, package_name, updated_releases)
+        end
+    end
   end
 
   def retire_package_release(registry, package_name, version, reason, message) do

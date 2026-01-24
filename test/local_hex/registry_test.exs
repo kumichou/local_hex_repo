@@ -383,7 +383,7 @@ defmodule LocalHex.RegistryTest do
         Registry.add_package(%{}, package)
         |> Registry.revert_release(package.name, "0.1.0")
 
-      assert Enum.empty?(registry["example_lib"])
+      refute Map.has_key?(registry, "example_lib")
     end
 
     test "is idempotent" do
@@ -395,7 +395,7 @@ defmodule LocalHex.RegistryTest do
         |> Registry.revert_release(package.name, "0.1.0")
         |> Registry.revert_release(package.name, "0.1.0")
 
-      assert Enum.empty?(registry["example_lib"])
+      refute Map.has_key?(registry, "example_lib")
     end
 
     test "does nothing on missing version" do

@@ -189,7 +189,7 @@ defmodule LocalHexWeb.API.PackageControllerTest do
 
       repository = LocalHex.Repository.load(repository)
 
-      assert Enum.empty?(repository.registry["example_lib"])
+      refute Map.has_key?(repository.registry, "example_lib")
     end
 
     test "error on missing version", %{conn: conn} do

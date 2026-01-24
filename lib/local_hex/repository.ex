@@ -93,6 +93,18 @@ defmodule LocalHex.Repository do
         Map.update!(repository, :registry, fn registry ->
           Registry.revert_release(registry, package_name, version)
         end)
+
+      # If that was the last release, remove the package artifact from storage as well
+      # (otherwise it may still be listed in some UIs or remain as stale metadata).
+      _ =
+        if Map.has_key?(repository.registry, package_name) do
+          :ok
+        else
+          Storage.delete_package(repository, package_name)
+        end
+
+      repository =
+        repository
         |> Builder.build_and_save(package_name)
         |> save()
 
