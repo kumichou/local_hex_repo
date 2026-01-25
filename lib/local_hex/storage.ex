@@ -10,6 +10,7 @@ defmodule LocalHex.Storage do
   require Logger
 
   alias LocalHex.{Documentation, Package, Repository}
+  alias ExAws.S3
 
   @callback write(repository :: Repository.t(), path :: binary, value :: binary) ::
               :ok | {:error, term}
@@ -86,9 +87,71 @@ defmodule LocalHex.Storage do
     delete(repository, package_tarball_path(tarball))
   end
 
+  @doc """
+  Returns true if the docs tarball exists for `name`/`version`.
+
+  This is used by the Web UI to hide "Docs" links for internal packages that
+  never uploaded docs.
+  """
+  def docs_tarball_exists?(repository, name, version)
+      when is_binary(name) and is_binary(version) do
+    tarball = "#{name}-#{version}.tar"
+    storage_exists?(repository, ["docs", name, tarball])
+  end
+
   def delete(repository, path) do
     {adapter_module, _} = repository.store
     adapter_module.delete(repository, path)
+  end
+
+  defp storage_exists?(repository, path) do
+    case repository.store do
+      {LocalHex.Storage.Local, opts} when is_list(opts) ->
+        File.exists?(local_file_path(repository, opts, path))
+
+      {LocalHex.Storage.S3, opts} when is_list(opts) ->
+        s3_object_exists?(repository, opts, path)
+
+      _ ->
+        false
+    end
+  end
+
+  defp local_file_path(repository, opts, path) do
+    root = local_root_path(opts)
+    Path.join([root, repository.name | List.wrap(path)])
+  end
+
+  defp local_root_path(root: {app, path}) when is_atom(app) and is_binary(path) do
+    Application.app_dir(app, path)
+  end
+
+  defp local_root_path(root: path) when is_binary(path) do
+    if Path.type(path) == :absolute do
+      path
+    else
+      Path.join(Application.app_dir(:local_hex), path)
+    end
+  end
+
+  defp s3_object_exists?(repository, opts, path) do
+    bucket = Keyword.fetch!(opts, :bucket)
+    s3_opts = Keyword.get(opts, :options, [])
+    key = Path.join(["", repository.name | List.wrap(path)])
+
+    request = S3.head_object(bucket, key, s3_opts)
+
+    case ExAws.request(request, s3_opts) do
+      {:ok, _} ->
+        true
+
+      {:error, {:http_error, 404, _}} ->
+        false
+
+      {:error, other} ->
+        Logger.debug("#{inspect(__MODULE__)} head_object failed: #{inspect(other)}")
+        false
+    end
   end
 
   defp repository_file_path(repository) do

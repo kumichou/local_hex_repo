@@ -8,8 +8,9 @@
       <%= version %>
     </td>
     <td>
-      <a href="{Routes.package_path(@conn, :documentation, package.name, version)}" target="_blank">Docs</a>
-
+      <%= if docs_uploaded?(@repo, package.name, version) do %>
+        <a href="{Routes.package_path(@conn, :documentation, package.name, version)}" target="_blank">Docs</a>
+      <% end %>
     </td>
     <td>
       <div class="input-group">

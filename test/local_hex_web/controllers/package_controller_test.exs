@@ -15,7 +15,14 @@ defmodule LocalHexWeb.PackageControllerTest do
     {:ok, _repository} = Repository.publish(repository, tarball)
 
     conn = get(conn, "/package/example_lib")
-    assert html_response(conn, 200) =~ "/documentation/example_lib/0.1.0"
+    # No docs uploaded yet, so the UI should not show a docs link.
+    refute html_response(conn, 200) =~ "/documentation/example_lib/0.1.0"
     assert html_response(conn, 200) =~ "{:example_lib, &quot;~&gt; 0.1.0&quot;, repo: :test}"
+
+    {:ok, docs_tarball} = File.read("./test/fixtures/docs/example_lib-0.1.0.tar")
+    :ok = Repository.publish_docs(repository, "example_lib", "0.1.0", docs_tarball)
+
+    conn = get(conn, "/package/example_lib")
+    assert html_response(conn, 200) =~ "/documentation/example_lib/0.1.0"
   end
 end

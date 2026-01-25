@@ -15,7 +15,9 @@
         <%= version %>
       </td>
       <td>
-        <%= link "Docs", to: Routes.documentation_path(@conn, :show, @package.name, version), target: "_blank" %>
+        <%= if docs_uploaded?(@repo, @package.name, version) do %>
+          <%= link "Docs", to: Routes.documentation_path(@conn, :show, @package.name, version), target: "_blank" %>
+        <% end %>
       </td>
       <td>
         <div class="field has-addons">
